@@ -302,7 +302,8 @@ MIT License - See LICENSE file for details
 Support ongoing development across all my projects:
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-181717?logo=github)](https://github.com/sponsors/bowermotorsport)
-[![Ko-fi](https://img.shields.io/badge/Donate-Ko--fi-29ABE0?logo=ko-fi&logoColor=white)](https://ko-fi.com/bowermotorsport)
+[![Support Future Projects](https://img.shields.io/badge/Support%20Future%20Projects-Ko--fi-29ABE0?logo=ko-fi&logoColor=white)](https://ko-fi.com/bowermotorsport)
+
 
 ## Screenshots
 
