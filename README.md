@@ -4,6 +4,14 @@
   <img src="Readme_Images/Example_Template.png" height="400">
 </div>
 
+## 🏁 Connect With Me
+
+[![Facebook](https://img.shields.io/badge/Facebook-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://www.facebook.com/BowerMotorsport)
+[![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/bower_motorsport/)
+
+*Educational content about motorsport topics, with a focus on the niche and technical side of motorsport engineering.
+
+---
 # Exhaust Thermal Wrap Template Generator | Blender
 
 A Blender addon that generates accurate flat pattern cutting templates for pipe wrapping materials. Create professional PDF templates for any pipe specification with a simple GUI interface.
@@ -26,7 +34,7 @@ A Blender addon that generates accurate flat pattern cutting templates for pipe 
 ## Use Cases
 
 Perfect for:
-- Exhaust system heat wrapping (fiberglass, ceramic, stainless steel)
+- Exhaust system heat wrapping (ceramic fibre, stainless steel, inconel sheet)
 - Pipe insulation fabrication
 - Custom pipe covering materials such as clamp on heatshields
 
@@ -69,7 +77,7 @@ Open a terminal/command prompt and run:
    - Bend Radius: 1.5 (for 1.5D radius)
    - Bend Angle: 90° (for 90-degree bend)
    - Number of Segments: 5
-   - Wrap Thickness: 6.15mm (6mm fiberglass + 0.15mm stainless)
+   - Wrap Thickness: 6.15mm (6mm ceramic fibre + 0.15mm stainless)
    - Overlap: 10mm
 4. Select an output folder
 5. Click **"Generate Template"**
@@ -141,7 +149,7 @@ How many pieces to split the bend into
 
 ### Wrap Thickness (mm)
 Thickness of the wrap material in millimeters
-- Default: 6.15mm (6mm fiberglass + 0.15mm stainless) Note: Often stainless layer needs to be calcualted as much thicker due to embossing. 
+- Default: 6.15mm (6mm ceramic fibre + 0.15mm stainless) Note: Often stainless layer needs to be calcualted as much thicker due to embossing. 
 - Range: 0.1mm to 50mm
 - Automatically calculates wrap radius
 
@@ -204,7 +212,7 @@ When printing the PDF template:
 
 1. Cut along the **RED outline** (not the blue reference line)
 2. Make the specified number of identical pieces
-3. Example: For 5 segments, cut 5 pieces from fiberglass and 5 from stainless 
+3. Example: For 5 segments, cut 5 pieces from ceramic fibre and 5 from stainless 
 Note: Overlap between the pieces will need to be accounted for on a case by case basis.
 
 
