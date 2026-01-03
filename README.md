@@ -46,11 +46,11 @@ Perfect for:
 
 ### Install the Addon
 
-1. Download `pipe_template_generator.py` from this repository
+1. Download `pipe_template_generator.zip` from this repository **(No not unzip)**
 2. Open Blender
 3. Go to: **Edit > Preferences > Add-ons**
 4. Click **Install...** button (top right)
-5. Select the downloaded `pipe_template_generator.py` file
+5. Select the downloaded `pipe_template_generator.zip` file
 6. Enable the addon by checking the box next to **"Object: Pipe Flat Pattern Generator"**
 
 ## Quick Start
