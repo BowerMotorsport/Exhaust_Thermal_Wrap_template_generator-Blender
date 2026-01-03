@@ -43,21 +43,6 @@ Perfect for:
 ### Prerequisites
 
 1. **Blender 3.0 or higher** - [Download Blender](https://www.blender.org/download/)
-2. **Python reportlab library** - Required for PDF generation
-
-### Install reportlab
-
-Open a terminal/command prompt and run:
-
-**Windows:**
-```bash
-"C:\Program Files\Blender Foundation\Blender 4.1\4.1\python\bin\python.exe" -m pip install reportlab
-```
-
-**macOS/Linux:**
-```bash
-/path/to/blender/python/bin/python -m pip install reportlab
-```
 
 ### Install the Addon
 
