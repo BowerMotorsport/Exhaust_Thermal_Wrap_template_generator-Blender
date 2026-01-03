@@ -13,6 +13,14 @@ bl_info = {
     "category": "Object",
 }
 
+import sys
+import os
+
+_addon_dir = os.path.dirname(os.path.abspath(__file__))
+_lib_path = os.path.join(_addon_dir, "lib")
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
 import bpy
 import bmesh
 import math
@@ -25,6 +33,7 @@ from bpy.types import Panel, Operator, PropertyGroup
 # Property Group - Stores user inputs
 # ============================================================================
 
+
 class PipeTemplateProperties(PropertyGroup):
     pipe_od: FloatProperty(
         name="Pipe OD",
@@ -32,7 +41,7 @@ class PipeTemplateProperties(PropertyGroup):
         default=76.2,
         min=10.0,
         max=500.0,
-        unit='LENGTH'
+        unit="LENGTH",
     )
 
     bend_radius_multiplier: FloatProperty(
@@ -40,7 +49,7 @@ class PipeTemplateProperties(PropertyGroup):
         description="Bend centerline radius as multiple of diameter",
         default=1.5,
         min=0.5,
-        max=10.0
+        max=10.0,
     )
 
     bend_angle: FloatProperty(
@@ -48,7 +57,7 @@ class PipeTemplateProperties(PropertyGroup):
         description="Total bend angle in degrees",
         default=90.0,
         min=1.0,
-        max=360.0
+        max=360.0,
     )
 
     num_segments: IntProperty(
@@ -56,7 +65,7 @@ class PipeTemplateProperties(PropertyGroup):
         description="How many segments to split the bend into",
         default=5,
         min=1,
-        max=20
+        max=20,
     )
 
     wrap_thickness: FloatProperty(
@@ -64,7 +73,7 @@ class PipeTemplateProperties(PropertyGroup):
         description="Thickness of the wrap material in mm (fiberglass + stainless)",
         default=6.15,
         min=0.1,
-        max=50.0
+        max=50.0,
     )
 
     overlap: FloatProperty(
@@ -72,26 +81,29 @@ class PipeTemplateProperties(PropertyGroup):
         description="Overlap for seam and segment joins in mm",
         default=10.0,
         min=0.0,
-        max=50.0
+        max=50.0,
     )
 
     output_folder: StringProperty(
         name="Output Folder",
         description="Folder to save generated PDF",
         default="./Pipe flat templates",
-        subtype='DIR_PATH',
-        maxlen=1024
+        subtype="DIR_PATH",
+        maxlen=1024,
     )
+
 
 # ============================================================================
 # Operators
 # ============================================================================
 
+
 class PIPE_OT_GenerateTemplate(Operator):
     """Generate pipe flat pattern template"""
+
     bl_idname = "pipe.generate_template"
     bl_label = "Generate Template"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         props = context.scene.pipe_template_props
@@ -100,39 +112,39 @@ class PIPE_OT_GenerateTemplate(Operator):
             # Early validation - check output folder before expensive computations
             try:
                 validated_path = self._validate_output_folder(props.output_folder)
-                self.report({'INFO'}, f"Output directory: {validated_path}")
+                self.report({"INFO"}, f"Output directory: {validated_path}")
             except Exception as e:
-                self.report({'ERROR'}, f"Output folder validation failed: {str(e)}")
-                return {'CANCELLED'}
+                self.report({"ERROR"}, f"Output folder validation failed: {str(e)}")
+                return {"CANCELLED"}
 
             # Step 1: Create 3D pipe segment in Blender
-            self.report({'INFO'}, "Creating 3D pipe segment...")
+            self.report({"INFO"}, "Creating 3D pipe segment...")
             segment_obj = self.create_pipe_segment(props)
 
             # Step 2: UV unwrap
-            self.report({'INFO'}, "UV unwrapping...")
+            self.report({"INFO"}, "UV unwrapping...")
             self.unwrap_pipe_segment(segment_obj, props)
 
             # Step 3: Export UV data
-            self.report({'INFO'}, "Extracting UV data...")
+            self.report({"INFO"}, "Extracting UV data...")
             uv_data, boundary_data = self.extract_uv_data(segment_obj, props)
 
             # Step 4: Generate PDF
-            self.report({'INFO'}, "Generating PDF...")
+            self.report({"INFO"}, "Generating PDF...")
             self.generate_pdf(props, uv_data, boundary_data)
 
-            self.report({'INFO'}, f"Template generated successfully!")
-            return {'FINISHED'}
+            self.report({"INFO"}, f"Template generated successfully!")
+            return {"FINISHED"}
 
         except Exception as e:
-            self.report({'ERROR'}, f"Failed to generate template: {str(e)}")
-            return {'CANCELLED'}
+            self.report({"ERROR"}, f"Failed to generate template: {str(e)}")
+            return {"CANCELLED"}
 
     def create_pipe_segment(self, props):
         """Create a 3D curved pipe segment"""
         # Ensure we're in object mode
-        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
+        if bpy.context.object and bpy.context.object.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
 
         # Clear existing PipeSegment objects using direct API
         for obj in list(bpy.data.objects):
@@ -157,7 +169,7 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         # Resolution
         angular_resolution = 12  # Cross-sections along the curve
-        radial_resolution = 32   # Vertices around the circle
+        radial_resolution = 32  # Vertices around the circle
 
         angle_step = (end_rad - start_rad) / angular_resolution
         all_rings = []
@@ -215,8 +227,8 @@ class PIPE_OT_GenerateTemplate(Operator):
     def unwrap_pipe_segment(self, obj, props):
         """UV unwrap the pipe segment with seam on inside radius"""
         # Ensure we're in object mode first
-        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
+        if bpy.context.object and bpy.context.object.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
 
         # Deselect all objects using direct API
         for o in bpy.context.scene.objects:
@@ -238,7 +250,7 @@ class PIPE_OT_GenerateTemplate(Operator):
             edge.seam = False
 
         # Find minimum radius (closest to origin in XY plane)
-        min_radius = float('inf')
+        min_radius = float("inf")
         for v in bm.verts:
             radius = math.sqrt(v.co.x**2 + v.co.y**2)
             if radius < min_radius:
@@ -258,50 +270,52 @@ class PIPE_OT_GenerateTemplate(Operator):
                 r2 = math.sqrt(v2.co.x**2 + v2.co.y**2)
 
                 # Check if both vertices are at minimum radius
-                if (abs(r1 - min_radius) < radius_tolerance and
-                    abs(r2 - min_radius) < radius_tolerance):
+                if (
+                    abs(r1 - min_radius) < radius_tolerance
+                    and abs(r2 - min_radius) < radius_tolerance
+                ):
                     edge.seam = True
 
         bm.to_mesh(mesh)
         bm.free()
 
         # Unwrap
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.001)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.unwrap(method="ANGLE_BASED", margin=0.001)
+        bpy.ops.object.mode_set(mode="OBJECT")
 
     def _validate_output_folder(self, folder_path):
         """Validate output folder path early to avoid wasting computation.
-        
+
         Args:
             folder_path: Path string from StringProperty
-        
+
         Returns:
             Normalized absolute path
-        
+
         Raises:
             Exception: With descriptive error message if path invalid
         """
         import os
         import errno
-        
+
         if not folder_path or folder_path.strip() == "":
             raise Exception("Output folder path is empty. Please select a folder.")
-        
+
         # Normalize path
         normalized = os.path.normpath(folder_path)
         abs_path = os.path.abspath(normalized)
-        
+
         # Check if parent directory exists (for creation)
         parent_dir = os.path.dirname(abs_path)
         if parent_dir and not os.path.exists(parent_dir):
             raise Exception(f"Parent directory does not exist: {parent_dir}")
-        
+
         # Check if path is a file (not directory)
         if os.path.isfile(abs_path):
             raise Exception(f"Path is a file, not a directory: {abs_path}")
-        
+
         # Check permissions (if directory exists)
         if os.path.exists(abs_path):
             if not os.access(abs_path, os.W_OK):
@@ -309,8 +323,10 @@ class PIPE_OT_GenerateTemplate(Operator):
         else:
             # Check if we can create directory (check parent permissions)
             if parent_dir and not os.access(parent_dir, os.W_OK):
-                raise Exception(f"Cannot create directory - parent is not writable: {parent_dir}")
-        
+                raise Exception(
+                    f"Cannot create directory - parent is not writable: {parent_dir}"
+                )
+
         return abs_path
 
     def extract_uv_data(self, obj, props):
@@ -351,8 +367,11 @@ class PIPE_OT_GenerateTemplate(Operator):
                     edge_order[edge_sorted] = (v1, v2)  # Keep original direction
 
         # Get boundary edges with original direction
-        boundary_edges = [[list(edge_order[edge][0]), list(edge_order[edge][1])]
-                         for edge, count in edge_count.items() if count == 1]
+        boundary_edges = [
+            [list(edge_order[edge][0]), list(edge_order[edge][1])]
+            for edge, count in edge_count.items()
+            if count == 1
+        ]
 
         # Calculate dimensions
         bend_centerline_radius = props.pipe_od * props.bend_radius_multiplier
@@ -371,53 +390,53 @@ class PIPE_OT_GenerateTemplate(Operator):
         wrap_arc = wrap_distance * segment_angle_rad
 
         uv_data = {
-            'polygons': polygons,
-            'min_u': min_u,
-            'max_u': max_u,
-            'min_v': min_v,
-            'max_v': max_v,
-            'pipe_circ_mm': base_circ,
-            'pipe_arc_mm': base_arc,
-            'wrap_width': wrap_width,
-            'wrap_arc_length': wrap_arc,
-            'overlap': props.overlap
+            "polygons": polygons,
+            "min_u": min_u,
+            "max_u": max_u,
+            "min_v": min_v,
+            "max_v": max_v,
+            "pipe_circ_mm": base_circ,
+            "pipe_arc_mm": base_arc,
+            "wrap_width": wrap_width,
+            "wrap_arc_length": wrap_arc,
+            "overlap": props.overlap,
         }
 
         boundary_data = {
-            'boundary_edges': boundary_edges,
-            'min_u': min_u,
-            'max_u': max_u,
-            'min_v': min_v,
-            'max_v': max_v
+            "boundary_edges": boundary_edges,
+            "min_u": min_u,
+            "max_u": max_u,
+            "min_v": min_v,
+            "max_v": max_v,
         }
 
         return uv_data, boundary_data
 
     def _ensure_output_directory(self, folder_path):
         """Ensure output directory exists and is writable.
-        
+
         Args:
             folder_path: Path to directory as string
-        
+
         Returns:
             Normalized absolute path to directory
-        
+
         Raises:
             Exception: If directory cannot be created or is not writable
         """
         import os
         import errno
-        
+
         # Normalize path (handle ~, relative paths, etc.)
         normalized = os.path.normpath(folder_path)
         # Convert to absolute path relative to current working directory
         abs_path = os.path.abspath(normalized)
-        
+
         # Check if it exists
         if not os.path.exists(abs_path):
             try:
                 os.makedirs(abs_path, exist_ok=True)
-                self.report({'INFO'}, f"Created output directory: {abs_path}")
+                self.report({"INFO"}, f"Created output directory: {abs_path}")
             except OSError as e:
                 if e.errno == errno.EACCES:
                     raise Exception(f"Permission denied creating directory: {abs_path}")
@@ -425,11 +444,11 @@ class PIPE_OT_GenerateTemplate(Operator):
                     raise Exception(f"Disk full creating directory: {abs_path}")
                 else:
                     raise Exception(f"Failed to create directory {abs_path}: {str(e)}")
-        
+
         # Check if directory is writable
         if not os.access(abs_path, os.W_OK):
             raise Exception(f"Directory is not writable: {abs_path}")
-        
+
         return abs_path
 
     def generate_pdf(self, props, uv_data, boundary_data):
@@ -451,17 +470,17 @@ class PIPE_OT_GenerateTemplate(Operator):
             raise Exception("reportlab not installed. Run: pip install reportlab")
 
         # Extract data
-        boundary_edges = boundary_data['boundary_edges']
-        min_u = boundary_data['min_u']
-        max_u = boundary_data['max_u']
-        min_v = boundary_data['min_v']
-        max_v = boundary_data['max_v']
+        boundary_edges = boundary_data["boundary_edges"]
+        min_u = boundary_data["min_u"]
+        max_u = boundary_data["max_u"]
+        min_v = boundary_data["min_v"]
+        max_v = boundary_data["max_v"]
 
-        base_w = uv_data['pipe_circ_mm']
-        base_h = uv_data['pipe_arc_mm']
-        wrap_w = uv_data['wrap_width']
-        wrap_h = uv_data['wrap_arc_length']
-        overlap = uv_data['overlap']
+        base_w = uv_data["pipe_circ_mm"]
+        base_h = uv_data["pipe_arc_mm"]
+        wrap_w = uv_data["wrap_width"]
+        wrap_h = uv_data["wrap_arc_length"]
+        overlap = uv_data["overlap"]
 
         segment_angle = props.bend_angle / props.num_segments
 
@@ -484,7 +503,7 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         # Extract values
         od = props.pipe_od
-        clr = props.bend_radius_multiplier    # centerline radius in mm
+        clr = props.bend_radius_multiplier  # centerline radius in mm
         segments = props.num_segments
         overlap = props.overlap
         mat_thickness = props.wrap_thickness
@@ -497,7 +516,7 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         # Ensure output directory exists and is writable
         output_dir = self._ensure_output_directory(props.output_folder)
-        
+
         # Full path
         pdf_path = os.path.join(output_dir, filename)
         c = pdf_canvas.Canvas(pdf_path, pagesize=landscape(A4))
@@ -511,14 +530,52 @@ class PIPE_OT_GenerateTemplate(Operator):
 
             if total_height_needed <= available_height:
                 # Both halves fit on same page
-                self._generate_split_same_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                              base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                              split_overlap, page_w, page_h, margin, blue, red, black)
+                self._generate_split_same_page(
+                    c,
+                    props,
+                    boundary_edges,
+                    min_u,
+                    max_u,
+                    min_v,
+                    max_v,
+                    base_w,
+                    base_h,
+                    wrap_w,
+                    wrap_h,
+                    overlap,
+                    segment_angle,
+                    split_overlap,
+                    page_w,
+                    page_h,
+                    margin,
+                    blue,
+                    red,
+                    black,
+                )
             else:
                 # Halves don't fit vertically - use separate pages
-                self._generate_split_separate_pages(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                                   base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                                   split_overlap, page_w, page_h, margin, blue, red, black)
+                self._generate_split_separate_pages(
+                    c,
+                    props,
+                    boundary_edges,
+                    min_u,
+                    max_u,
+                    min_v,
+                    max_v,
+                    base_w,
+                    base_h,
+                    wrap_w,
+                    wrap_h,
+                    overlap,
+                    segment_angle,
+                    split_overlap,
+                    page_w,
+                    page_h,
+                    margin,
+                    blue,
+                    red,
+                    black,
+                )
         else:
             # Template fits width - check vertical space for two templates
             template_spacing = 15 * mm
@@ -526,63 +583,129 @@ class PIPE_OT_GenerateTemplate(Operator):
 
             if total_height_needed <= available_height:
                 # Both templates fit on single page
-                self._generate_single_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                           base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                           page_w, page_h, margin, blue, red, black)
+                self._generate_single_page(
+                    c,
+                    props,
+                    boundary_edges,
+                    min_u,
+                    max_u,
+                    min_v,
+                    max_v,
+                    base_w,
+                    base_h,
+                    wrap_w,
+                    wrap_h,
+                    overlap,
+                    segment_angle,
+                    page_w,
+                    page_h,
+                    margin,
+                    blue,
+                    red,
+                    black,
+                )
             else:
                 # Templates don't fit vertically - one per page
-                self._generate_single_multipage(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                               base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                               page_w, page_h, margin, blue, red, black)
+                self._generate_single_multipage(
+                    c,
+                    props,
+                    boundary_edges,
+                    min_u,
+                    max_u,
+                    min_v,
+                    max_v,
+                    base_w,
+                    base_h,
+                    wrap_w,
+                    wrap_h,
+                    overlap,
+                    segment_angle,
+                    page_w,
+                    page_h,
+                    margin,
+                    blue,
+                    red,
+                    black,
+                )
 
         c.save()
-        self.report({'INFO'}, f"PDF saved to: {pdf_path}")
+        self.report({"INFO"}, f"PDF saved to: {pdf_path}")
 
-    def _generate_single_page(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                             base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                             page_w, page_h, margin, blue, red, black):
+    def _generate_single_page(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+    ):
         """Generate single page with two templates"""
         from reportlab.lib.units import mm
 
         # Two templates per page (top and bottom)
         template_positions = [
             (margin + 40 * mm, "TEMPLATE 1"),
-            (margin + 40 * mm + wrap_h * mm + 15 * mm, "TEMPLATE 2")
+            (margin + 40 * mm + wrap_h * mm + 15 * mm, "TEMPLATE 2"),
         ]
 
         # Title at top
         c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(page_w/2, page_h - 15*mm, "EXHAUST WRAP CUTTING TEMPLATE")
+        c.drawCentredString(
+            page_w / 2, page_h - 15 * mm, "EXHAUST WRAP CUTTING TEMPLATE"
+        )
 
         c.setFont("Helvetica", 10)
-        c.drawCentredString(page_w/2, page_h - 25*mm,
-                           f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment")
+        c.drawCentredString(
+            page_w / 2,
+            page_h - 25 * mm,
+            f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment",
+        )
 
         # Template Outlines legend - TOP LEFT
         legend_x = margin
-        legend_y = page_h - 40*mm
+        legend_y = page_h - 40 * mm
 
         c.setFont("Helvetica-Bold", 9)
         c.drawString(legend_x, legend_y, "TEMPLATE OUTLINES:")
 
         c.setStrokeColor(blue)
         c.setLineWidth(2)
-        c.line(legend_x, legend_y - 10*mm, legend_x + 20*mm, legend_y - 10*mm)
+        c.line(legend_x, legend_y - 10 * mm, legend_x + 20 * mm, legend_y - 10 * mm)
         c.setStrokeColor(black)
         c.setFont("Helvetica", 7)
-        c.drawString(legend_x + 22*mm, legend_y - 12*mm, f"Base pipe: {base_w:.0f}×{base_h:.0f}mm")
+        c.drawString(
+            legend_x + 22 * mm,
+            legend_y - 12 * mm,
+            f"Base pipe: {base_w:.0f}×{base_h:.0f}mm",
+        )
 
         c.setStrokeColor(red)
         c.setLineWidth(2)
-        c.line(legend_x, legend_y - 20*mm, legend_x + 20*mm, legend_y - 20*mm)
+        c.line(legend_x, legend_y - 20 * mm, legend_x + 20 * mm, legend_y - 20 * mm)
         c.setStrokeColor(black)
-        c.drawString(legend_x + 22*mm, legend_y - 22*mm, f"Wrap: {wrap_w:.0f}×{wrap_h:.0f}mm")
+        c.drawString(
+            legend_x + 22 * mm, legend_y - 22 * mm, f"Wrap: {wrap_w:.0f}×{wrap_h:.0f}mm"
+        )
 
         c.setFont("Helvetica-Bold", 7)
-        c.drawString(legend_x, legend_y - 33*mm, "CUT TO RED OUTLINE:")
+        c.drawString(legend_x, legend_y - 33 * mm, "CUT TO RED OUTLINE:")
         c.setFont("Helvetica", 7)
-        c.drawString(legend_x, legend_y - 41*mm, f"{wrap_w:.0f} × {wrap_h:.0f} mm")
-        c.drawString(legend_x, legend_y - 49*mm, f"Qty: {props.num_segments} pieces")
+        c.drawString(legend_x, legend_y - 41 * mm, f"{wrap_w:.0f} × {wrap_h:.0f} mm")
+        c.drawString(legend_x, legend_y - 49 * mm, f"Qty: {props.num_segments} pieces")
 
         # Draw two templates
         for template_y, label in template_positions:
@@ -599,9 +722,13 @@ class PIPE_OT_GenerateTemplate(Operator):
                 u2, v2_coord = v2
 
                 u1_norm = (u1 - min_u) / (max_u - min_u) if (max_u - min_u) > 0 else 0
-                v1_norm = (v1_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                v1_norm = (
+                    (v1_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                )
                 u2_norm = (u2 - min_u) / (max_u - min_u) if (max_u - min_u) > 0 else 0
-                v2_norm = (v2_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                v2_norm = (
+                    (v2_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                )
 
                 x1_mm = v1_norm * base_w
                 y1_mm = u1_norm * base_h
@@ -624,9 +751,13 @@ class PIPE_OT_GenerateTemplate(Operator):
                 u2, v2_coord = v2
 
                 u1_norm = (u1 - min_u) / (max_u - min_u) if (max_u - min_u) > 0 else 0
-                v1_norm = (v1_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                v1_norm = (
+                    (v1_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                )
                 u2_norm = (u2 - min_u) / (max_u - min_u) if (max_u - min_u) > 0 else 0
-                v2_norm = (v2_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                v2_norm = (
+                    (v2_coord - min_v) / (max_v - min_v) if (max_v - min_v) > 0 else 0
+                )
 
                 x1_mm = v1_norm * wrap_w
                 y1_mm = u1_norm * wrap_h
@@ -648,32 +779,62 @@ class PIPE_OT_GenerateTemplate(Operator):
         scale_len = 100 * mm
 
         c.setLineWidth(1.5)
-        c.rect(scale_x, scale_y, scale_len, 10*mm)
+        c.rect(scale_x, scale_y, scale_len, 10 * mm)
         c.setFillColor(black)
-        c.rect(scale_x, scale_y, scale_len/2, 10*mm, fill=1, stroke=0)
+        c.rect(scale_x, scale_y, scale_len / 2, 10 * mm, fill=1, stroke=0)
 
         c.setLineWidth(1)
-        c.line(scale_x, scale_y, scale_x, scale_y - 5*mm)
-        c.line(scale_x + scale_len/2, scale_y, scale_x + scale_len/2, scale_y - 5*mm)
-        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5*mm)
+        c.line(scale_x, scale_y, scale_x, scale_y - 5 * mm)
+        c.line(
+            scale_x + scale_len / 2, scale_y, scale_x + scale_len / 2, scale_y - 5 * mm
+        )
+        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5 * mm)
 
         c.setFont("Helvetica", 8)
-        c.drawString(scale_x, scale_y - 10*mm, "0")
-        c.drawString(scale_x + scale_len/2 - 10*mm, scale_y - 10*mm, "50mm")
-        c.drawString(scale_x + scale_len - 18*mm, scale_y - 10*mm, "100mm")
+        c.drawString(scale_x, scale_y - 10 * mm, "0")
+        c.drawString(scale_x + scale_len / 2 - 10 * mm, scale_y - 10 * mm, "50mm")
+        c.drawString(scale_x + scale_len - 18 * mm, scale_y - 10 * mm, "100mm")
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(scale_x + scale_len + 5*mm, scale_y + 3*mm, "← MUST MEASURE 100mm EXACTLY")
+        c.drawString(
+            scale_x + scale_len + 5 * mm,
+            scale_y + 3 * mm,
+            "← MUST MEASURE 100mm EXACTLY",
+        )
 
         # Footer
         c.setFont("Helvetica", 7)
-        c.drawString(margin, 5*mm, "Print: 100% scale | Landscape | A4 | Verify scale bar | Cut along RED outline")
+        c.drawString(
+            margin,
+            5 * mm,
+            "Print: 100% scale | Landscape | A4 | Verify scale bar | Cut along RED outline",
+        )
 
         c.showPage()
 
-    def _generate_split_same_page(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                  base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                  split_overlap, page_w, page_h, margin, blue, red, black):
+    def _generate_split_same_page(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        split_overlap,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+    ):
         """Generate single page with both left and right halves"""
         from reportlab.lib.units import mm
         from reportlab.lib.colors import HexColor
@@ -689,42 +850,77 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         half_positions = [
             (start_y, "LEFT HALF"),
-            (start_y + wrap_h * mm + template_spacing, "RIGHT HALF")
+            (start_y + wrap_h * mm + template_spacing, "RIGHT HALF"),
         ]
 
         # Title
         c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(page_w/2, page_h - 15*mm, "EXHAUST WRAP CUTTING TEMPLATE")
+        c.drawCentredString(
+            page_w / 2, page_h - 15 * mm, "EXHAUST WRAP CUTTING TEMPLATE"
+        )
 
         c.setFont("Helvetica", 10)
-        c.drawCentredString(page_w/2, page_h - 25*mm,
-                           f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment")
+        c.drawCentredString(
+            page_w / 2,
+            page_h - 25 * mm,
+            f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment",
+        )
 
         # Instructions
         c.setFont("Helvetica-Bold", 9)
         c.setFillColor(HexColor("#CC0000"))
-        c.drawCentredString(page_w/2, page_h - 35*mm, "JOIN LEFT AND RIGHT HALVES AT GREEN CENTERLINE")
+        c.drawCentredString(
+            page_w / 2,
+            page_h - 35 * mm,
+            "JOIN LEFT AND RIGHT HALVES AT GREEN CENTERLINE",
+        )
         c.setFillColor(black)
 
         # Legend - compact version
         legend_x = margin
-        legend_y = page_h - 50*mm
+        legend_y = page_h - 50 * mm
 
         c.setFont("Helvetica-Bold", 8)
         c.drawString(legend_x, legend_y, f"FULL SIZE: {wrap_w:.0f}mm × {wrap_h:.0f}mm")
         c.setFont("Helvetica", 7)
-        c.drawString(legend_x, legend_y - 8*mm, f"Each half: {half_width:.0f}mm × {wrap_h:.0f}mm")
+        c.drawString(
+            legend_x,
+            legend_y - 8 * mm,
+            f"Each half: {half_width:.0f}mm × {wrap_h:.0f}mm",
+        )
 
         # Draw both halves
         for template_y, label in half_positions:
-            is_left = (label == "LEFT HALF")
+            is_left = label == "LEFT HALF"
             x_start = 0 if is_left else (center_w - split_overlap)
             x_end = (center_w + split_overlap) if is_left else wrap_w
 
-            self._draw_split_half(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                 base_w, base_h, wrap_w, wrap_h, x_start, x_end,
-                                 center_w, split_overlap, template_y, label,
-                                 page_w, half_width, margin, blue, red, black, is_left)
+            self._draw_split_half(
+                c,
+                props,
+                boundary_edges,
+                min_u,
+                max_u,
+                min_v,
+                max_v,
+                base_w,
+                base_h,
+                wrap_w,
+                wrap_h,
+                x_start,
+                x_end,
+                center_w,
+                split_overlap,
+                template_y,
+                label,
+                page_w,
+                half_width,
+                margin,
+                blue,
+                red,
+                black,
+                is_left,
+            )
 
         # Scale bar
         scale_x = margin
@@ -733,32 +929,62 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         c.setStrokeColor(black)
         c.setLineWidth(1.5)
-        c.rect(scale_x, scale_y, scale_len, 10*mm)
+        c.rect(scale_x, scale_y, scale_len, 10 * mm)
         c.setFillColor(black)
-        c.rect(scale_x, scale_y, scale_len/2, 10*mm, fill=1, stroke=0)
+        c.rect(scale_x, scale_y, scale_len / 2, 10 * mm, fill=1, stroke=0)
 
         c.setLineWidth(1)
-        c.line(scale_x, scale_y, scale_x, scale_y - 5*mm)
-        c.line(scale_x + scale_len/2, scale_y, scale_x + scale_len/2, scale_y - 5*mm)
-        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5*mm)
+        c.line(scale_x, scale_y, scale_x, scale_y - 5 * mm)
+        c.line(
+            scale_x + scale_len / 2, scale_y, scale_x + scale_len / 2, scale_y - 5 * mm
+        )
+        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5 * mm)
 
         c.setFont("Helvetica", 8)
-        c.drawString(scale_x, scale_y - 10*mm, "0")
-        c.drawString(scale_x + scale_len/2 - 10*mm, scale_y - 10*mm, "50mm")
-        c.drawString(scale_x + scale_len - 18*mm, scale_y - 10*mm, "100mm")
+        c.drawString(scale_x, scale_y - 10 * mm, "0")
+        c.drawString(scale_x + scale_len / 2 - 10 * mm, scale_y - 10 * mm, "50mm")
+        c.drawString(scale_x + scale_len - 18 * mm, scale_y - 10 * mm, "100mm")
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(scale_x + scale_len + 5*mm, scale_y + 3*mm, "← MUST MEASURE 100mm EXACTLY")
+        c.drawString(
+            scale_x + scale_len + 5 * mm,
+            scale_y + 3 * mm,
+            "← MUST MEASURE 100mm EXACTLY",
+        )
 
         # Footer
         c.setFont("Helvetica", 7)
-        c.drawString(margin, 5*mm, "Print: 100% scale | Landscape | A4 | Join halves at GREEN centerline | Cut RED outline")
+        c.drawString(
+            margin,
+            5 * mm,
+            "Print: 100% scale | Landscape | A4 | Join halves at GREEN centerline | Cut RED outline",
+        )
 
         c.showPage()
 
-    def _generate_split_separate_pages(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                       base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                       split_overlap, page_w, page_h, margin, blue, red, black):
+    def _generate_split_separate_pages(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        split_overlap,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+    ):
         """Generate separate pages when template is too wide and too tall"""
         from reportlab.lib.units import mm
         from reportlab.lib.colors import HexColor
@@ -769,21 +995,90 @@ class PIPE_OT_GenerateTemplate(Operator):
         right_width = center_w + split_overlap
 
         # PAGE 1: Left half (0 to center + overlap)
-        self._draw_split_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                             base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                             0, left_width, center_w, split_overlap,
-                             "LEFT HALF (1 of 2)", page_w, page_h, margin, blue, red, black, True)
+        self._draw_split_page(
+            c,
+            props,
+            boundary_edges,
+            min_u,
+            max_u,
+            min_v,
+            max_v,
+            base_w,
+            base_h,
+            wrap_w,
+            wrap_h,
+            overlap,
+            segment_angle,
+            0,
+            left_width,
+            center_w,
+            split_overlap,
+            "LEFT HALF (1 of 2)",
+            page_w,
+            page_h,
+            margin,
+            blue,
+            red,
+            black,
+            True,
+        )
 
         # PAGE 2: Right half (center - overlap to end)
-        self._draw_split_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                             base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                             center_w - split_overlap, wrap_w, center_w, split_overlap,
-                             "RIGHT HALF (2 of 2)", page_w, page_h, margin, blue, red, black, False)
+        self._draw_split_page(
+            c,
+            props,
+            boundary_edges,
+            min_u,
+            max_u,
+            min_v,
+            max_v,
+            base_w,
+            base_h,
+            wrap_w,
+            wrap_h,
+            overlap,
+            segment_angle,
+            center_w - split_overlap,
+            wrap_w,
+            center_w,
+            split_overlap,
+            "RIGHT HALF (2 of 2)",
+            page_w,
+            page_h,
+            margin,
+            blue,
+            red,
+            black,
+            False,
+        )
 
-    def _draw_split_half(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                        base_w, base_h, wrap_w, wrap_h, x_start, x_end,
-                        center_w, split_overlap, template_y, label,
-                        page_w, half_width, margin, blue, red, black, is_left):
+    def _draw_split_half(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        x_start,
+        x_end,
+        center_w,
+        split_overlap,
+        template_y,
+        label,
+        page_w,
+        half_width,
+        margin,
+        blue,
+        red,
+        black,
+        is_left,
+    ):
         """Draw one half of a split template"""
         from reportlab.lib.units import mm
         from reportlab.lib.colors import HexColor
@@ -796,7 +1091,7 @@ class PIPE_OT_GenerateTemplate(Operator):
         # Draw label
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(HexColor("#666666"))
-        c.drawString(template_x, template_y + wrap_h * mm + 2*mm, label)
+        c.drawString(template_x, template_y + wrap_h * mm + 2 * mm, label)
         c.setFillColor(black)
 
         # Draw base pipe outline (blue) - clipped to section
@@ -819,8 +1114,12 @@ class PIPE_OT_GenerateTemplate(Operator):
             y2_mm = u2_norm * base_h + base_offset_y
 
             # Clip to section
-            if (x_start <= x1_mm <= x_end or x_start <= x2_mm <= x_end or
-                (x1_mm < x_start and x2_mm > x_end) or (x2_mm < x_start and x1_mm > x_end)):
+            if (
+                x_start <= x1_mm <= x_end
+                or x_start <= x2_mm <= x_end
+                or (x1_mm < x_start and x2_mm > x_end)
+                or (x2_mm < x_start and x1_mm > x_end)
+            ):
                 x1_pt = template_x + (x1_mm - x_start) * mm
                 y1_pt = template_y + y1_mm * mm
                 x2_pt = template_x + (x2_mm - x_start) * mm
@@ -847,8 +1146,12 @@ class PIPE_OT_GenerateTemplate(Operator):
             y2_mm = u2_norm * wrap_h
 
             # Clip to section
-            if (x_start <= x1_mm <= x_end or x_start <= x2_mm <= x_end or
-                (x1_mm < x_start and x2_mm > x_end) or (x2_mm < x_start and x1_mm > x_end)):
+            if (
+                x_start <= x1_mm <= x_end
+                or x_start <= x2_mm <= x_end
+                or (x1_mm < x_start and x2_mm > x_end)
+                or (x2_mm < x_start and x1_mm > x_end)
+            ):
                 x1_pt = template_x + (x1_mm - x_start) * mm
                 y1_pt = template_y + y1_mm * mm
                 x2_pt = template_x + (x2_mm - x_start) * mm
@@ -869,7 +1172,12 @@ class PIPE_OT_GenerateTemplate(Operator):
         if is_left:
             # Mark right edge overlap zone
             overlap_x = template_x + (center_w + split_overlap - x_start) * mm
-            c.rect(overlap_x - split_overlap * mm, template_y, split_overlap * mm, wrap_h * mm)
+            c.rect(
+                overlap_x - split_overlap * mm,
+                template_y,
+                split_overlap * mm,
+                wrap_h * mm,
+            )
         else:
             # Mark left edge overlap zone
             overlap_x = template_x
@@ -877,24 +1185,101 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         c.setStrokeColor(black)
 
-    def _generate_single_multipage(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                   base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                   page_w, page_h, margin, blue, red, black):
+    def _generate_single_multipage(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+    ):
         """Generate multiple pages when single template is too tall vertically"""
         from reportlab.lib.units import mm
 
         # One template per page
-        self._draw_single_template_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                       base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                       page_w, page_h, margin, blue, red, black, "TEMPLATE 1/2")
+        self._draw_single_template_page(
+            c,
+            props,
+            boundary_edges,
+            min_u,
+            max_u,
+            min_v,
+            max_v,
+            base_w,
+            base_h,
+            wrap_w,
+            wrap_h,
+            overlap,
+            segment_angle,
+            page_w,
+            page_h,
+            margin,
+            blue,
+            red,
+            black,
+            "TEMPLATE 1/2",
+        )
 
-        self._draw_single_template_page(c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                       base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                       page_w, page_h, margin, blue, red, black, "TEMPLATE 2/2")
+        self._draw_single_template_page(
+            c,
+            props,
+            boundary_edges,
+            min_u,
+            max_u,
+            min_v,
+            max_v,
+            base_w,
+            base_h,
+            wrap_w,
+            wrap_h,
+            overlap,
+            segment_angle,
+            page_w,
+            page_h,
+            margin,
+            blue,
+            red,
+            black,
+            "TEMPLATE 2/2",
+        )
 
-    def _draw_single_template_page(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                                  base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                                  page_w, page_h, margin, blue, red, black, page_label):
+    def _draw_single_template_page(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+        page_label,
+    ):
         """Draw a single template on its own page"""
         from reportlab.lib.units import mm
 
@@ -906,40 +1291,51 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         # Title
         c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(page_w/2, page_h - 15*mm, "EXHAUST WRAP CUTTING TEMPLATE")
+        c.drawCentredString(
+            page_w / 2, page_h - 15 * mm, "EXHAUST WRAP CUTTING TEMPLATE"
+        )
 
         c.setFont("Helvetica", 10)
-        c.drawCentredString(page_w/2, page_h - 25*mm,
-                           f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment")
+        c.drawCentredString(
+            page_w / 2,
+            page_h - 25 * mm,
+            f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment",
+        )
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(page_w/2, page_h - 35*mm, page_label)
+        c.drawCentredString(page_w / 2, page_h - 35 * mm, page_label)
 
         # Legend
         legend_x = margin
-        legend_y = page_h - 50*mm
+        legend_y = page_h - 50 * mm
 
         c.setFont("Helvetica-Bold", 9)
         c.drawString(legend_x, legend_y, "TEMPLATE OUTLINES:")
 
         c.setStrokeColor(blue)
         c.setLineWidth(2)
-        c.line(legend_x, legend_y - 10*mm, legend_x + 20*mm, legend_y - 10*mm)
+        c.line(legend_x, legend_y - 10 * mm, legend_x + 20 * mm, legend_y - 10 * mm)
         c.setStrokeColor(black)
         c.setFont("Helvetica", 7)
-        c.drawString(legend_x + 22*mm, legend_y - 12*mm, f"Base pipe: {base_w:.0f}×{base_h:.0f}mm")
+        c.drawString(
+            legend_x + 22 * mm,
+            legend_y - 12 * mm,
+            f"Base pipe: {base_w:.0f}×{base_h:.0f}mm",
+        )
 
         c.setStrokeColor(red)
         c.setLineWidth(2)
-        c.line(legend_x, legend_y - 20*mm, legend_x + 20*mm, legend_y - 20*mm)
+        c.line(legend_x, legend_y - 20 * mm, legend_x + 20 * mm, legend_y - 20 * mm)
         c.setStrokeColor(black)
-        c.drawString(legend_x + 22*mm, legend_y - 22*mm, f"Wrap: {wrap_w:.0f}×{wrap_h:.0f}mm")
+        c.drawString(
+            legend_x + 22 * mm, legend_y - 22 * mm, f"Wrap: {wrap_w:.0f}×{wrap_h:.0f}mm"
+        )
 
         c.setFont("Helvetica-Bold", 7)
-        c.drawString(legend_x, legend_y - 33*mm, "CUT TO RED OUTLINE:")
+        c.drawString(legend_x, legend_y - 33 * mm, "CUT TO RED OUTLINE:")
         c.setFont("Helvetica", 7)
-        c.drawString(legend_x, legend_y - 41*mm, f"{wrap_w:.0f} × {wrap_h:.0f} mm")
-        c.drawString(legend_x, legend_y - 49*mm, f"Qty: {props.num_segments} pieces")
+        c.drawString(legend_x, legend_y - 41 * mm, f"{wrap_w:.0f} × {wrap_h:.0f} mm")
+        c.drawString(legend_x, legend_y - 49 * mm, f"Qty: {props.num_segments} pieces")
 
         # Draw base pipe outline (blue)
         c.setStrokeColor(blue)
@@ -999,33 +1395,67 @@ class PIPE_OT_GenerateTemplate(Operator):
         scale_len = 100 * mm
 
         c.setLineWidth(1.5)
-        c.rect(scale_x, scale_y, scale_len, 10*mm)
+        c.rect(scale_x, scale_y, scale_len, 10 * mm)
         c.setFillColor(black)
-        c.rect(scale_x, scale_y, scale_len/2, 10*mm, fill=1, stroke=0)
+        c.rect(scale_x, scale_y, scale_len / 2, 10 * mm, fill=1, stroke=0)
 
         c.setLineWidth(1)
-        c.line(scale_x, scale_y, scale_x, scale_y - 5*mm)
-        c.line(scale_x + scale_len/2, scale_y, scale_x + scale_len/2, scale_y - 5*mm)
-        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5*mm)
+        c.line(scale_x, scale_y, scale_x, scale_y - 5 * mm)
+        c.line(
+            scale_x + scale_len / 2, scale_y, scale_x + scale_len / 2, scale_y - 5 * mm
+        )
+        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5 * mm)
 
         c.setFont("Helvetica", 8)
-        c.drawString(scale_x, scale_y - 10*mm, "0")
-        c.drawString(scale_x + scale_len/2 - 10*mm, scale_y - 10*mm, "50mm")
-        c.drawString(scale_x + scale_len - 18*mm, scale_y - 10*mm, "100mm")
+        c.drawString(scale_x, scale_y - 10 * mm, "0")
+        c.drawString(scale_x + scale_len / 2 - 10 * mm, scale_y - 10 * mm, "50mm")
+        c.drawString(scale_x + scale_len - 18 * mm, scale_y - 10 * mm, "100mm")
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(scale_x + scale_len + 5*mm, scale_y + 3*mm, "← MUST MEASURE 100mm EXACTLY")
+        c.drawString(
+            scale_x + scale_len + 5 * mm,
+            scale_y + 3 * mm,
+            "← MUST MEASURE 100mm EXACTLY",
+        )
 
         # Footer
         c.setFont("Helvetica", 7)
-        c.drawString(margin, 5*mm, "Print: 100% scale | Landscape | A4 | Verify scale bar | Cut along RED outline")
+        c.drawString(
+            margin,
+            5 * mm,
+            "Print: 100% scale | Landscape | A4 | Verify scale bar | Cut along RED outline",
+        )
 
         c.showPage()
 
-    def _draw_split_page(self, c, props, boundary_edges, min_u, max_u, min_v, max_v,
-                        base_w, base_h, wrap_w, wrap_h, overlap, segment_angle,
-                        x_start, x_end, center_w, split_overlap,
-                        page_label, page_w, page_h, margin, blue, red, black, is_left):
+    def _draw_split_page(
+        self,
+        c,
+        props,
+        boundary_edges,
+        min_u,
+        max_u,
+        min_v,
+        max_v,
+        base_w,
+        base_h,
+        wrap_w,
+        wrap_h,
+        overlap,
+        segment_angle,
+        x_start,
+        x_end,
+        center_w,
+        split_overlap,
+        page_label,
+        page_w,
+        page_h,
+        margin,
+        blue,
+        red,
+        black,
+        is_left,
+    ):
         """Draw one page of a split template"""
         from reportlab.lib.units import mm
         from reportlab.lib.colors import HexColor
@@ -1035,30 +1465,43 @@ class PIPE_OT_GenerateTemplate(Operator):
 
         # Title
         c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(page_w/2, page_h - 15*mm, "EXHAUST WRAP CUTTING TEMPLATE")
+        c.drawCentredString(
+            page_w / 2, page_h - 15 * mm, "EXHAUST WRAP CUTTING TEMPLATE"
+        )
 
         c.setFont("Helvetica-Bold", 11)
         c.setFillColor(HexColor("#CC0000"))
-        c.drawCentredString(page_w/2, page_h - 28*mm, page_label)
+        c.drawCentredString(page_w / 2, page_h - 28 * mm, page_label)
         c.setFillColor(black)
 
         c.setFont("Helvetica", 10)
-        c.drawCentredString(page_w/2, page_h - 40*mm,
-                           f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment")
+        c.drawCentredString(
+            page_w / 2,
+            page_h - 40 * mm,
+            f"{props.pipe_od:.1f}mm OD | {props.bend_radius_multiplier:.1f}D {props.bend_angle:.0f}° Bend | {segment_angle:.1f}° per segment",
+        )
 
         # Legend
         legend_x = margin
-        legend_y = page_h - 55*mm
+        legend_y = page_h - 55 * mm
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(legend_x, legend_y, f"TEMPLATE SIZE: {wrap_w:.0f}mm × {wrap_h:.0f}mm (FULL)")
+        c.drawString(
+            legend_x, legend_y, f"TEMPLATE SIZE: {wrap_w:.0f}mm × {wrap_h:.0f}mm (FULL)"
+        )
         c.setFont("Helvetica", 8)
-        c.drawString(legend_x, legend_y - 10*mm, f"This section: {section_width:.0f}mm × {wrap_h:.0f}mm")
-        c.drawString(legend_x, legend_y - 18*mm, f"Overlap zone: {split_overlap}mm")
+        c.drawString(
+            legend_x,
+            legend_y - 10 * mm,
+            f"This section: {section_width:.0f}mm × {wrap_h:.0f}mm",
+        )
+        c.drawString(legend_x, legend_y - 18 * mm, f"Overlap zone: {split_overlap}mm")
 
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(HexColor("#CC0000"))
-        c.drawString(legend_x, legend_y - 30*mm, "JOIN PAGES AT CENTERLINE (dashed green)")
+        c.drawString(
+            legend_x, legend_y - 30 * mm, "JOIN PAGES AT CENTERLINE (dashed green)"
+        )
         c.setFillColor(black)
 
         # Calculate template position (centered)
@@ -1086,8 +1529,12 @@ class PIPE_OT_GenerateTemplate(Operator):
             y2_mm = u2_norm * base_h + base_offset_y
 
             # Clip to section
-            if (x_start <= x1_mm <= x_end or x_start <= x2_mm <= x_end or
-                (x1_mm < x_start and x2_mm > x_end) or (x2_mm < x_start and x1_mm > x_end)):
+            if (
+                x_start <= x1_mm <= x_end
+                or x_start <= x2_mm <= x_end
+                or (x1_mm < x_start and x2_mm > x_end)
+                or (x2_mm < x_start and x1_mm > x_end)
+            ):
                 x1_pt = template_x + (x1_mm - x_start) * mm
                 y1_pt = template_y + y1_mm * mm
                 x2_pt = template_x + (x2_mm - x_start) * mm
@@ -1114,8 +1561,12 @@ class PIPE_OT_GenerateTemplate(Operator):
             y2_mm = u2_norm * wrap_h
 
             # Clip to section
-            if (x_start <= x1_mm <= x_end or x_start <= x2_mm <= x_end or
-                (x1_mm < x_start and x2_mm > x_end) or (x2_mm < x_start and x1_mm > x_end)):
+            if (
+                x_start <= x1_mm <= x_end
+                or x_start <= x2_mm <= x_end
+                or (x1_mm < x_start and x2_mm > x_end)
+                or (x2_mm < x_start and x1_mm > x_end)
+            ):
                 x1_pt = template_x + (x1_mm - x_start) * mm
                 y1_pt = template_y + y1_mm * mm
                 x2_pt = template_x + (x2_mm - x_start) * mm
@@ -1133,7 +1584,9 @@ class PIPE_OT_GenerateTemplate(Operator):
         # Centerline label
         c.setFillColor(HexColor("#00AA00"))
         c.setFont("Helvetica-Bold", 8)
-        c.drawString(centerline_x + 2*mm, template_y + wrap_h * mm + 2*mm, "CENTERLINE")
+        c.drawString(
+            centerline_x + 2 * mm, template_y + wrap_h * mm + 2 * mm, "CENTERLINE"
+        )
         c.setFillColor(black)
 
         # Draw overlap zone markers
@@ -1142,15 +1595,28 @@ class PIPE_OT_GenerateTemplate(Operator):
         if is_left:
             # Mark right edge overlap zone
             overlap_x = template_x + (center_w + split_overlap - x_start) * mm
-            c.rect(overlap_x - split_overlap * mm, template_y, split_overlap * mm, wrap_h * mm)
+            c.rect(
+                overlap_x - split_overlap * mm,
+                template_y,
+                split_overlap * mm,
+                wrap_h * mm,
+            )
             c.setFont("Helvetica", 6)
-            c.drawString(overlap_x - split_overlap * mm / 2 - 8*mm, template_y - 5*mm, f"{split_overlap}mm overlap")
+            c.drawString(
+                overlap_x - split_overlap * mm / 2 - 8 * mm,
+                template_y - 5 * mm,
+                f"{split_overlap}mm overlap",
+            )
         else:
             # Mark left edge overlap zone
             overlap_x = template_x
             c.rect(overlap_x, template_y, split_overlap * mm, wrap_h * mm)
             c.setFont("Helvetica", 6)
-            c.drawString(overlap_x + split_overlap * mm / 2 - 8*mm, template_y - 5*mm, f"{split_overlap}mm overlap")
+            c.drawString(
+                overlap_x + split_overlap * mm / 2 - 8 * mm,
+                template_y - 5 * mm,
+                f"{split_overlap}mm overlap",
+            )
 
         c.setStrokeColor(black)
 
@@ -1160,40 +1626,53 @@ class PIPE_OT_GenerateTemplate(Operator):
         scale_len = 100 * mm
 
         c.setLineWidth(1.5)
-        c.rect(scale_x, scale_y, scale_len, 10*mm)
+        c.rect(scale_x, scale_y, scale_len, 10 * mm)
         c.setFillColor(black)
-        c.rect(scale_x, scale_y, scale_len/2, 10*mm, fill=1, stroke=0)
+        c.rect(scale_x, scale_y, scale_len / 2, 10 * mm, fill=1, stroke=0)
 
         c.setLineWidth(1)
-        c.line(scale_x, scale_y, scale_x, scale_y - 5*mm)
-        c.line(scale_x + scale_len/2, scale_y, scale_x + scale_len/2, scale_y - 5*mm)
-        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5*mm)
+        c.line(scale_x, scale_y, scale_x, scale_y - 5 * mm)
+        c.line(
+            scale_x + scale_len / 2, scale_y, scale_x + scale_len / 2, scale_y - 5 * mm
+        )
+        c.line(scale_x + scale_len, scale_y, scale_x + scale_len, scale_y - 5 * mm)
 
         c.setFont("Helvetica", 8)
-        c.drawString(scale_x, scale_y - 10*mm, "0")
-        c.drawString(scale_x + scale_len/2 - 10*mm, scale_y - 10*mm, "50mm")
-        c.drawString(scale_x + scale_len - 18*mm, scale_y - 10*mm, "100mm")
+        c.drawString(scale_x, scale_y - 10 * mm, "0")
+        c.drawString(scale_x + scale_len / 2 - 10 * mm, scale_y - 10 * mm, "50mm")
+        c.drawString(scale_x + scale_len - 18 * mm, scale_y - 10 * mm, "100mm")
 
         c.setFont("Helvetica-Bold", 9)
-        c.drawString(scale_x + scale_len + 5*mm, scale_y + 3*mm, "← MUST MEASURE 100mm EXACTLY")
+        c.drawString(
+            scale_x + scale_len + 5 * mm,
+            scale_y + 3 * mm,
+            "← MUST MEASURE 100mm EXACTLY",
+        )
 
         # Footer
         c.setFont("Helvetica", 7)
-        c.drawString(margin, 5*mm, f"Print: 100% scale | Landscape | A4 | {page_label} | Join at GREEN centerline")
+        c.drawString(
+            margin,
+            5 * mm,
+            f"Print: 100% scale | Landscape | A4 | {page_label} | Join at GREEN centerline",
+        )
 
         c.showPage()
+
 
 # ============================================================================
 # Panel
 # ============================================================================
 
+
 class PIPE_PT_TemplatePanel(Panel):
     """Panel in 3D viewport sidebar"""
+
     bl_label = "Pipe Template Generator"
     bl_idname = "PIPE_PT_template_panel"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = 'Pipe Templates'
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Pipe Templates"
 
     def draw(self, context):
         layout = self.layout
@@ -1201,7 +1680,7 @@ class PIPE_PT_TemplatePanel(Panel):
 
         # Pipe specifications
         box = layout.box()
-        box.label(text="Pipe Specifications:", icon='MESH_CYLINDER')
+        box.label(text="Pipe Specifications:", icon="MESH_CYLINDER")
         box.prop(props, "pipe_od")
         box.prop(props, "bend_radius_multiplier")
         box.prop(props, "bend_angle")
@@ -1209,18 +1688,21 @@ class PIPE_PT_TemplatePanel(Panel):
 
         # Wrap layer
         box = layout.box()
-        box.label(text="Wrap Layer:", icon='MOD_CLOTH')
+        box.label(text="Wrap Layer:", icon="MOD_CLOTH")
         box.prop(props, "wrap_thickness")
         box.prop(props, "overlap")
 
         # Output
         box = layout.box()
-        box.label(text="Output:", icon='FILE_FOLDER')
+        box.label(text="Output:", icon="FILE_FOLDER")
         box.prop(props, "output_folder")
 
         # Generate button
         layout.separator()
-        layout.operator("pipe.generate_template", text="Generate Template", icon='FILE_NEW')
+        layout.operator(
+            "pipe.generate_template", text="Generate Template", icon="FILE_NEW"
+        )
+
 
 # ============================================================================
 # Registration
@@ -1232,15 +1714,20 @@ classes = (
     PIPE_PT_TemplatePanel,
 )
 
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.Scene.pipe_template_props = bpy.props.PointerProperty(type=PipeTemplateProperties)
+    bpy.types.Scene.pipe_template_props = bpy.props.PointerProperty(
+        type=PipeTemplateProperties
+    )
+
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.pipe_template_props
+
 
 if __name__ == "__main__":
     register()
