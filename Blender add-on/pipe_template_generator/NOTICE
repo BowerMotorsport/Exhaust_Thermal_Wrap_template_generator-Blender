@@ -1,0 +1,9 @@
+Pipe Flat Pattern Template Generator
+
+This software includes the following third-party components:
+
+reportlab - Copyright (c) 2000-2024 ReportLab Holdings Ltd
+License: BSD 3-Clause License
+https://www.reportlab.com/
+
+All third-party components are distributed under their respective BSD licenses.
